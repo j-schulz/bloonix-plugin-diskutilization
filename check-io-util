@@ -46,6 +46,26 @@ $plugin->has_timeout(default => 10);
 
 my $opt = $plugin->parse_options;
 
+my $iostat = qx{which iostat};
+chomp $iostat;
+
+if (!$iostat || !-x $iostat) {
+    $plugin->exit(
+        status => "UNKNOWN",
+        message => "command 'iostat' not found"
+    );
+}
+
+my $awk = qx{which awk};
+chomp $awk;
+
+if (!$awk || !-x $awk) {
+    $plugin->exit(
+        status => "UNKNOWN",
+        message => "command 'awk' not found"
+    );
+}
+
 my $util = `/usr/bin/iostat -d -x '$opt->{device}' | /usr/bin/awk '/^'$opt->{device}/' {print \$14}'`;
 chomp $util;
 
