@@ -35,7 +35,7 @@ $plugin->add_option(
     name => "Device name",
     option => "device",
     value => "device",
-    multiple => 0,
+    multiple => 1,
     mandatory => 1,
     regex => qr/^[a-zA-Z_0-9]+\z/,
     value_type => "string",
@@ -54,27 +54,31 @@ if (!$iostat || !-x $iostat) {
     );
 }
 
-my @output = qx{$iostat -d -x '$opt->{device}'};
-my $util;
+my @output = qx{$iostat -d -x};
+my $util = { map { $_ => undef } @{$opt->{device}} };
 
 foreach my $line (@output) {
-    if ($line =~ /^$opt->{device}/) {
-        $util = (split /\s+/, $line)[13];
+    my @parts = split /\s+/, $line;
+    next unless @parts == 14;
+    if (exists $util->{$parts[0]}) {
+        $util->{$parts[0]} = $parts[13];
     }
 }
 
-if (!defined $util || !length $util) {
-    $plugin->exit(
-        status => "UNKNOWN",
-        message => "device $opt->{device}' not found"
-    );
+foreach my $dev (@{$opt->{device}}) {
+    if (!defined $util->{$dev}) {
+        $plugin->exit(
+            status => "UNKNOWN",
+            message => "device $dev' not found"
+        );
+    }
 }
+
+my $message = "%util: " . join("; ", map { "$_: $util->{$_}" } keys %$util);
 
 $plugin->exit(
     status => "OK",
-    message => "%util: $util",
-    stats => {
-        util => $util
-    }
+    message => $message,
+    stats => $util
 );
 
