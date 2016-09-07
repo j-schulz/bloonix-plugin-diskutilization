@@ -42,8 +42,6 @@ $plugin->add_option(
     description => "This is the device name to check."
 );
 
-$plugin->has_timeout(default => 10);
-
 my $opt = $plugin->parse_options;
 
 my $iostat = qx{which iostat};
@@ -56,24 +54,27 @@ if (!$iostat || !-x $iostat) {
     );
 }
 
-my $awk = qx{which awk};
-chomp $awk;
+my @output = qx{$iostat -d -x '$opt->{device}'};
+my $util;
 
-if (!$awk || !-x $awk) {
+foreach my $line (@output) {
+    if ($line =~ /^$opt->{device}/) {
+        $util = (split /\s+/, $line)[13];
+    }
+}
+
+if (!defined $util || !length $util) {
     $plugin->exit(
         status => "UNKNOWN",
-        message => "command 'awk' not found"
+        message => "device $opt->{device}' not found"
     );
 }
 
-my $util = `/usr/bin/iostat -d -x '$opt->{device}' | /usr/bin/awk '/^'$opt->{device}/' {print \$14}'`;
-chomp $util;
-
-my $status = "OK";
-
 $plugin->exit(
-    status => $status,
+    status => "OK",
     message => "%util: $util",
-    stats => $util
+    stats => {
+        util => $util
+    }
 );
 
